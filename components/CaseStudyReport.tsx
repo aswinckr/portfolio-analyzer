@@ -36,6 +36,15 @@ export default function CaseStudyReport({
     }));
   };
 
+  /**
+   * Escapes quotes in text content for safer rendering
+   * @param {string} text - The text to escape
+   * @returns {string} Escaped text with quotes converted to HTML entities
+   */
+  const escapeQuotes = (text: string): string => {
+    return text.replace(/"/g, "&quot;");
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-8 w-full">
       {/* Left Column - Overall Score */}
@@ -74,7 +83,12 @@ export default function CaseStudyReport({
                     <h3 className="text-sm font-medium text-gray-400 mb-1">
                       Content
                     </h3>
-                    <p className="text-gray-200 italic">"{section.content}"</p>
+                    <p
+                      className="text-gray-200 italic"
+                      dangerouslySetInnerHTML={{
+                        __html: `"${escapeQuotes(section.content)}"`,
+                      }}
+                    />
                   </div>
                 )}
                 {section.comments && (
