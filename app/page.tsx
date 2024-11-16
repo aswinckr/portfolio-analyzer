@@ -1,80 +1,115 @@
-import { ChatWindow } from "@/components/ChatWindow";
+"use client";
 
-export default function Home() {
-  const InfoCard = (
-    <div className="p-4 md:p-8 rounded bg-[#25252d] w-full max-h-[85%] overflow-hidden">
-      <h1 className="text-3xl md:text-4xl mb-4">
-        ▲ Next.js + LangChain.js 🦜🔗
-      </h1>
-      <ul>
-        <li className="text-l">
-          🤝
-          <span className="ml-2">
-            This template showcases a simple chatbot using{" "}
-            <a href="https://js.langchain.com/" target="_blank">
-              LangChain.js
-            </a>{" "}
-            and the Vercel{" "}
-            <a href="https://sdk.vercel.ai/docs" target="_blank">
-              AI SDK
-            </a>{" "}
-            in a{" "}
-            <a href="https://nextjs.org/" target="_blank">
-              Next.js
-            </a>{" "}
-            project.
-          </span>
-        </li>
-        <li className="hidden text-l md:block">
-          💻
-          <span className="ml-2">
-            You can find the prompt and model logic for this use-case in{" "}
-            <code>app/api/chat/route.ts</code>.
-          </span>
-        </li>
-        <li>
-          🏴‍☠️
-          <span className="ml-2">
-            By default, the bot is pretending to be a pirate, but you can change
-            the prompt to whatever you want!
-          </span>
-        </li>
-        <li className="hidden text-l md:block">
-          🎨
-          <span className="ml-2">
-            The main frontend logic is found in <code>app/page.tsx</code>.
-          </span>
-        </li>
-        <li className="text-l">
-          🐙
-          <span className="ml-2">
-            This template is open source - you can see the source code and
-            deploy your own version{" "}
-            <a
-              href="https://github.com/langchain-ai/langchain-nextjs-template"
-              target="_blank"
-            >
-              from the GitHub repo
-            </a>
-            !
-          </span>
-        </li>
-        <li className="text-l">
-          👇
-          <span className="ml-2">
-            Try asking e.g. <code>What is it like to be a pirate?</code> below!
-          </span>
-        </li>
-      </ul>
-    </div>
-  );
+import { useState } from "react";
+import CaseStudyReport from "@/components/CaseStudyReport";
+
+export default function StructuredOutputPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [url, setUrl] = useState("");
+  const [report, setReport] = useState<{
+    overallScore: number;
+    sections: Array<{
+      title: string;
+      score: number;
+      content: string;
+      comments: string;
+      suggestions: string;
+    }>;
+  } | null>(null);
+
+  /**
+   * Transforms the API response into the format expected by CaseStudyReport
+   */
+  const transformResponse = (data: any) => {
+    const sections = Object.entries(data)
+      .filter(([key]) => key !== "overall_score")
+      .map(([key, value]: [string, any]) => ({
+        title: key
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" "),
+        score: value.score,
+        content: value.content,
+        comments: value.comment,
+        suggestions: value.suggestion,
+      }));
+
+    return {
+      overallScore: data.overall_score,
+      sections,
+    };
+  };
+
+  /**
+   * Handles the form submission and makes the API request
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/chat/structured_output", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: url,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze case study");
+      }
+
+      const data = await response.json();
+      const transformedData = transformResponse(data);
+      setReport(transformedData);
+    } catch (error) {
+      console.error("Error:", error);
+      // You might want to add error state handling here
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <ChatWindow
-      endpoint="api/chat"
-      emoji="🏴‍☠️"
-      titleText="Patchy the Chatty Pirate"
-      placeholder="I'm an LLM pretending to be a pirate! Ask me about the pirate life!"
-      emptyStateComponent={InfoCard}
-    ></ChatWindow>
+    <div className="flex flex-col gap-4 p-4 md:p-8 w-[85%] max-w-[1400px] mx-auto">
+      <h1 className="text-4xl font-bold mb-4">Case Study Analyzer</h1>
+
+      <form onSubmit={handleSubmit} className="w-full mb-8">
+        <div className="flex gap-4">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="Enter case study URL..."
+            className="flex-1 p-4 rounded bg-[#25252d] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !url}
+            className={`px-6 py-2 rounded bg-blue-500 text-white font-medium whitespace-nowrap
+              ${
+                isLoading || !url
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-blue-600"
+              }`}
+          >
+            {isLoading ? "Analyzing..." : "Analyze Case Study"}
+          </button>
+        </div>
+      </form>
+
+      {report && (
+        <div className="w-full">
+          <CaseStudyReport
+            overallScore={report.overallScore}
+            sections={report.sections}
+          />
+        </div>
+      )}
+    </div>
   );
 }
